@@ -24,9 +24,11 @@ describe('remote-cache worker', () => {
     ctx = createExecutionContext();
   });
 
-  it('should respond to the ping route via invoking the worker handler', async () => {
+  it('should respond to the authenticated ping route via invoking the worker handler', async () => {
     const response = await workerHandler.fetch(
-      new Request('https://turborepo-remote-cache.com/ping'),
+      new Request('https://turborepo-remote-cache.com/ping', {
+        headers: { Authorization: `Bearer ${workerEnv.TURBO_TOKEN}` },
+      }),
       workerEnv,
       ctx,
     );
@@ -36,19 +38,42 @@ describe('remote-cache worker', () => {
     expect(text).toBe('pong');
   });
 
-  it('should respond to the ping route via invoking the app', async () => {
-    const request = new Request('http://localhost/ping');
+  it('should respond to the authenticated ping route via invoking the app', async () => {
+    const request = new Request('http://localhost/ping', {
+      headers: { Authorization: `Bearer ${workerEnv.TURBO_TOKEN}` },
+    });
     const res = await app.fetch(request, workerEnv, ctx);
     expect(await res.text()).toBe('pong');
   });
 
-  it('should respond to the throw-exception route via invoking the app', async () => {
+  it('should return an empty 404 for the ping route without an auth token', async () => {
+    const request = new Request('http://localhost/ping');
+    const res = await app.fetch(request, workerEnv, ctx);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe('');
+  });
+
+  it('should return an empty 404 for the root route', async () => {
+    const res = await app.fetch(new Request('http://localhost/'), workerEnv, ctx);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe('');
+  });
+
+  it('should not expose a throw-exception route', async () => {
     const request = new Request('http://localhost/throw-exception');
     const res = await app.fetch(request, workerEnv, ctx);
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({
-      error: 'Expected error',
-    });
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe('');
+  });
+
+  it('should answer a known route without auth exactly as it answers an unknown route', async () => {
+    const [known, unknown] = await Promise.all([
+      app.fetch(new Request('http://localhost/v8/artifacts/status'), workerEnv, ctx),
+      app.fetch(new Request('http://localhost/wpDqNn2G'), workerEnv, ctx),
+    ]);
+    expect(known.status).toBe(unknown.status);
+    expect(await known.text()).toBe(await unknown.text());
+    expect([...known.headers]).toEqual([...unknown.headers]);
   });
 
   it('should throw a 500 error when the storage manager is not configured correctly', async () => {

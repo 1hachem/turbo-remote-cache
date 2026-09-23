@@ -67,7 +67,7 @@ describe('/internal Routes', () => {
       });
     });
 
-    test('should return 401 if no auth token is provided', async () => {
+    test('should return an empty 404 if no auth token is provided', async () => {
       const request = new Request('http://localhost/internal/delete-expired-objects', {
         method: 'POST',
         headers: {
@@ -76,7 +76,8 @@ describe('/internal Routes', () => {
         body: JSON.stringify({}),
       });
       const response = await app.fetch(request, workerEnv, ctx);
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe('');
       expect(deleteOldCacheMock).not.toHaveBeenCalled();
     });
   });
@@ -108,7 +109,7 @@ describe('/internal Routes', () => {
       expect(list.keys.length).toBe(10);
     });
 
-    test('should return 401 if no auth token is provided', async () => {
+    test('should return an empty 404 if no auth token is provided', async () => {
       const request = new Request('http://localhost/internal/populate-random-objects', {
         method: 'POST',
         headers: {
@@ -117,7 +118,8 @@ describe('/internal Routes', () => {
         body: JSON.stringify({ count: 10 }),
       });
       const response = await app.fetch(request, workerEnv, ctx);
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe('');
       const list = await workerEnv.STORAGE_MANAGER!.getActiveStorage().list();
       expect(list.keys.length).toBe(0);
     });
@@ -162,7 +164,7 @@ describe('/internal Routes', () => {
       expect(await response.json()).toEqual({ count: 1 });
     });
 
-    test('should return 401 if no auth token is provided', async () => {
+    test('should return an empty 404 if no auth token is provided', async () => {
       const request = new Request('http://localhost/internal/count-objects', {
         method: 'GET',
         headers: {
@@ -170,7 +172,8 @@ describe('/internal Routes', () => {
         },
       });
       const response = await app.fetch(request, workerEnv, ctx);
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe('');
     });
   });
 });

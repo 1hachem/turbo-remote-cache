@@ -52,8 +52,7 @@ Interface-based abstraction with two backends:
 Uses Hono (`hono/tiny` for smaller bundle) with valibot validation:
 
 ```
-/                     → Landing page HTML
-/ping                 → Health check
+/ping                 → Health check (bearer auth required)
 /v8/artifacts/*       → Turborepo API (bearer auth required)
   PUT /:artifactId    → Upload artifact
   GET /:artifactId    → Download artifact (5 min cache)
@@ -65,6 +64,11 @@ Uses Hono (`hono/tiny` for smaller bundle) with valibot validation:
   POST /populate-random-objects
   GET /count-objects
 ```
+
+Unauthenticated or unmatched requests all get the same empty `404` (`src/routes/not-found.ts`).
+There is no landing page and no unauthenticated endpoint: a `401` or a branded root page would
+identify the deployment as a Turborepo cache to anyone scanning it. Keep it that way when adding
+routes — gate them with `bearerAuthFromEnv`, which fails closed to that same 404.
 
 ### Cron Job (`src/crons/deleteOldCache.ts`)
 
