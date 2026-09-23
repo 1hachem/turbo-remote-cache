@@ -2,8 +2,13 @@ name: Deploy to Cloudflare Workers
 
 on:
   repository_dispatch:
+  workflow_dispatch:
   push:
     branches: ['master']
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -20,18 +25,38 @@ jobs:
       - run: pnpm install
       - run: pnpm build
 
-      - name: Deploy
-        uses: cloudflare/wrangler-action@v3
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN || 'SECRET' }}
+      - name: Fetch the Cloudflare and cache credentials from Infisical
+        uses: Infisical/secrets-action@v1.0.9
         with:
-          accountId: ${{ secrets.CF_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
-          apiToken: ${{ secrets.CF_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          method: universal
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          project-slug: ${{ vars.INFISICAL_PROJECT_SLUG }}
+          env-slug: ci
+          secret-path: /turbo
+          export-type: env
+
+      - name: Require the cache token
+        run: |
+          if [ -z "${TURBO_TOKEN:-}" ]; then
+            echo "TURBO_TOKEN is missing from Infisical. Refusing to deploy a cache with a guessable token."
+            exit 1
+          fi
+
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ env.CLOUDFLARE_API_TOKEN }}
           packageManager: 'pnpm'
-          preCommands: |
-            echo "*** post commands ***"
-            wrangler r2 bucket create turborepo-cache || true
-            echo "******"
+          preCommands: wrangler r2 bucket create turborepo-cache || true
           secrets: |
             TURBO_TOKEN
           command: deploy
+
+      - name: Smoke check
+        if: steps.deploy.outputs.deployment-url != ''
+        run: |
+          echo "deployed to ${{ steps.deploy.outputs.deployment-url }}"
+          curl -fsS "${{ steps.deploy.outputs.deployment-url }}/ping"
