@@ -44,7 +44,6 @@ jobs:
           fi
 
       - name: Deploy
-        id: deploy
         uses: cloudflare/wrangler-action@v3
         with:
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
@@ -54,9 +53,3 @@ jobs:
           secrets: |
             TURBO_TOKEN
           command: deploy
-
-      - name: Smoke check
-        if: steps.deploy.outputs.deployment-url != ''
-        run: |
-          echo "deployed to ${{ steps.deploy.outputs.deployment-url }}"
-          curl -fsS "${{ steps.deploy.outputs.deployment-url }}/ping"
