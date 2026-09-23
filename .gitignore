@@ -211,3 +211,8 @@ docs/.vitepress/cache
 
 # AI Agents
 .claude/settings.local.json
+
+# nix / direnv
+.direnv/
+result
+result-*
